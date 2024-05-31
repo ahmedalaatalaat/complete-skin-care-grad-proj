@@ -68,6 +68,60 @@ class LoginView(APIView):
 
 
 @parser_classes((MultiPartParser, ))
+class ProfileView(APIView):
+    authentication_classes = (TokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+    
+    def get(self, request):
+        serializer = ProfileSerializer(request.user.patient_user, many=False)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def put(self, request):
+        serializer = ProfileSerializer(data=request.data)
+        if serializer.is_valid():
+            request.user.first_name = request.data.get('name')
+            request.user.patient_user.phone = request.data.get('phone')
+            
+            if request.data.get('birthday'):
+                request.user.patient_user.birthday = request.data.get('birthday')
+            
+            if request.data.get('gender'):
+                request.user.patient_user.gender = request.data.get('gender')
+            
+            if request.FILES.get('image'):
+                request.user.patient_user.image = request.FILES.get('image')
+            
+            request.user.save()
+            request.user.patient_user.save()
+            
+            serializer = ProfileSerializer(request.user.patient_user, many=False)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request):
+        request.user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ResetUserPasswordView(APIView):
+    authentication_classes = (TokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+    
+    def put(self, request):
+        serializer = ResetUserPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            if request.user.check_password(request.data.get("old_password")):
+                request.user.set_password(request.data.get('new_password'))
+                request.user.save()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            else:
+                return Response({"error": "Invalid email or password"}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@parser_classes((MultiPartParser, ))
 class SkinRecognitionView(APIView):
     authentication_classes = (TokenAuthentication, )
     permission_classes = (IsAuthenticated, )
@@ -102,7 +156,6 @@ class SkinDiseaseView(APIView):
     permission_classes = (IsAuthenticated, )
     
     def get(self, request):
-        request.user
         skin_disease_results = SkinDiseaseResult.objects.filter(patient=request.user.patient_user)
         serializer = SkinDiseaseResultSerializer(skin_disease_results, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -150,6 +203,23 @@ class SkinBurnDegree(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+@parser_classes((MultiPartParser, ))
+class DiseasesHistoryView(APIView):
+    authentication_classes = (TokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request):
+        skin_recognition_results = SkinRecognitionResult.objects.filter(patient=request.user.patient_user)
+        skin_recognition_serializer = SkinRecognitionResultSerializer(skin_recognition_results, many=True)
+        
+        skin_disease_results = SkinDiseaseResult.objects.filter(patient=request.user.patient_user)
+        skin_disease_serializer = SkinDiseaseResultSerializer(skin_disease_results, many=True)
+        
+        data = {
+            "skin_recognition_results": skin_recognition_serializer.data,
+            "skin_disease_results": skin_recognition_serializer.data,
+        }
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 

@@ -6,4 +6,5 @@ from .models import *
 admin.site.register(SkinRecognitionResult)
 admin.site.register(SkinBurnDegreeResult)
 admin.site.register(SkinDiseaseResult)
+admin.site.register(Patient)
 
